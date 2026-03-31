@@ -3,15 +3,22 @@ import json
 import logging
 import types
 from collections.abc import Callable
+from pathlib import Path
 
 from rich.console import Console
 from rich.traceback import Traceback
 
-from .core import CustomRichHandler, get_formatted_traceback, get_traceback_renderable
+from .core import (
+    CustomRichHandler,
+    filter_traceback,
+    get_formatted_traceback,
+    get_traceback_renderable,
+)
 
 
 ExceptionInfo = tuple[type[BaseException], BaseException, types.TracebackType | None]
 ExceptionBuilder = Callable[[], ExceptionInfo]
+APP_PATHS = [str(Path(__file__).resolve().parent)]
 
 
 def nested_failure() -> None:
@@ -52,10 +59,36 @@ def build_third_party_exception() -> ExceptionInfo:
     raise RuntimeError("Expected third-party exception was not raised")
 
 
+def build_chained_stdlib_exception() -> ExceptionInfo:
+    try:
+        json.loads("{")
+    except Exception as exc:
+        exc = exc.with_traceback(filter_traceback(exc.__traceback__, APP_PATHS))
+        try:
+            raise RuntimeError("Application wrapper failed after stdlib error") from exc
+        except Exception as chained_exc:
+            return type(chained_exc), chained_exc, chained_exc.__traceback__
+    raise RuntimeError("Expected chained stdlib exception was not raised")
+
+
+def build_chained_third_party_exception() -> ExceptionInfo:
+    try:
+        Console().print("x", style="not-a-style[")
+    except Exception as exc:
+        exc = exc.with_traceback(filter_traceback(exc.__traceback__, APP_PATHS))
+        try:
+            raise RuntimeError("Application wrapper failed after third-party error") from exc
+        except Exception as chained_exc:
+            return type(chained_exc), chained_exc, chained_exc.__traceback__
+    raise RuntimeError("Expected chained third-party exception was not raised")
+
+
 EXAMPLES: dict[str, tuple[str, ExceptionBuilder]] = {
     "local": ("Local", build_local_exception),
     "stdlib": ("Stdlib", build_stdlib_exception),
     "third-party": ("Third-Party", build_third_party_exception),
+    "chained-stdlib": ("Chained Stdlib", build_chained_stdlib_exception),
+    "chained-third-party": ("Chained Third-Party", build_chained_third_party_exception),
 }
 
 

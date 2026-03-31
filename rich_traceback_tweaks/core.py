@@ -80,6 +80,18 @@ def filter_traceback(
     return filtered_tb
 
 
+def _filter_trace_stacks(trace, suppress_paths: list[str]) -> None:
+    """
+    Filter suppressed frames from every extracted stack in the exception chain.
+    """
+    for stack in trace.stacks:
+        stack.frames = [
+            frame
+            for frame in stack.frames
+            if not _is_suppressed_frame(frame.filename, suppress_paths)
+        ]
+
+
 def get_traceback_renderable(
     exc_type: type[BaseException] | None,
     exc_value: BaseException | None,
@@ -90,13 +102,13 @@ def get_traceback_renderable(
     """
     Return a Rich traceback renderable with filtered frames and clickable URIs.
     """
-    filtered_tb: types.TracebackType | None = filter_traceback(exc_tb, SUPPRESS_PATHS)
     trace = Traceback.extract(
         exc_type,
         exc_value,
-        filtered_tb,
+        exc_tb,
         show_locals=show_locals,
     )
+    _filter_trace_stacks(trace, SUPPRESS_PATHS)
 
     cwd: Path = Path.cwd()
 

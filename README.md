@@ -36,7 +36,7 @@ python -m rich_traceback_tweaks
 
 Options:
 
-- `--example {local,stdlib,third-party}`
+- `--example {local,stdlib,third-party,chained-stdlib,chained-third-party}`
 - `--mode {all,default,custom,string,logging}`
 - `--width 120`
 - `--no-locals`
