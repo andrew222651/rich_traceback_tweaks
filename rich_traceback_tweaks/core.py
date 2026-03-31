@@ -92,12 +92,26 @@ def _filter_trace_stacks(trace, suppress_paths: list[str]) -> None:
         ]
 
 
+def _display_path(abs_path: Path, base_path: Path | None) -> str:
+    """
+    Show paths relative to a chosen project base when possible.
+    """
+    if base_path is None:
+        return os.path.relpath(abs_path, start=Path.cwd())
+
+    try:
+        return str(abs_path.relative_to(base_path))
+    except ValueError:
+        return str(abs_path)
+
+
 def get_traceback_renderable(
     exc_type: type[BaseException] | None,
     exc_value: BaseException | None,
     exc_tb: types.TracebackType | None,
     width: int = DEFAULT_WIDTH,
     show_locals: bool = True,
+    base_path: str | Path | None = None,
 ) -> Traceback:
     """
     Return a Rich traceback renderable with filtered frames and clickable URIs.
@@ -110,12 +124,12 @@ def get_traceback_renderable(
     )
     _filter_trace_stacks(trace, SUPPRESS_PATHS)
 
-    cwd: Path = Path.cwd()
+    resolved_base_path: Path | None = None if base_path is None else Path(base_path).resolve()
 
     for stack in trace.stacks:
         for frame in stack.frames:
             abs_path = Path(frame.filename).resolve()
-            frame.filename = os.path.relpath(abs_path, start=cwd)
+            frame.filename = _display_path(abs_path, resolved_base_path)
             frame.name = f"{frame.name}  ({abs_path.as_uri()}:{frame.lineno})"
 
     return Traceback(trace=trace, width=width)
@@ -127,6 +141,7 @@ def get_formatted_traceback(
     exc_tb: types.TracebackType | None,
     width: int = DEFAULT_WIDTH,
     show_locals: bool = True,
+    base_path: str | Path | None = None,
 ) -> str:
     """
     Return the filtered Rich traceback as ANSI-formatted terminal text.
@@ -137,6 +152,7 @@ def get_formatted_traceback(
         exc_tb,
         width=width,
         show_locals=show_locals,
+        base_path=base_path,
     )
 
     buf = io.StringIO()
